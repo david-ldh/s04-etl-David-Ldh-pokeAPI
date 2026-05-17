@@ -97,13 +97,13 @@ Limpieza, enriquecimiento y cálculo de stats por nivel.
   - `total_stats` — suma de los 6 stats base
   - `height_m` — altura en metros (height / 10)
   - `weight_kg` — peso en kg (weight / 10)
-  - `stat_role` — rol según stat dominante: `tank / physical_sweeper / special_sweeper / speedster`
+  - `stat_role` — rol según stat dominante via `idxmax(axis=1).map(_STAT_ROLE_MAP)` (vectorizado)
   - `type2` — `None` se rellena con `"none"`
 - `_calcular_stat(base, nivel, es_hp)` — fórmula oficial gen 3+ (sin IVs/EVs/naturaleza):
   - HP: `floor(2 * base * nivel / 100) + nivel + 10`
   - Otros: `floor(2 * base * nivel / 100) + 5`
 - `enrich_comparaciones(df_comp, df_pokemon)` — merge con stats de cada Pokemon y calcula:
-  - Stats reales al nivel dado (`a_hp_lv`, `b_speed_lv`, etc.)
+  - Stats reales al nivel dado (`a_hp_lv`, `b_speed_lv`, etc.) — cálculo vectorizado con `//` y `+` por columna
   - `a_total_lv`, `b_total_lv` — suma de los 6 stats al nivel
   - `ganador` — nombre del ganador o `"empate"`
   - `poder_total`, `diferencia_poder`, `ventaja_pct`
@@ -210,6 +210,18 @@ Exploración interactiva de las tablas en DuckDB después de correr `pipeline.py
 | `enrich_comparaciones` | Stats al nivel, total_lv, poder_total, diferencia, ganador, empate |
 | `build_tabla_comparacion` | Columnas presentes, resultado correcto, filas = battles |
 | Edge cases | DataFrame vacío, todos inválidos |
+
+---
+
+## Decisiones de implementación
+
+| Decisión | Alternativa descartada | Motivo |
+|----------|------------------------|--------|
+| Stats al nivel con aritmética vectorizada (`//` por columna) | `apply(lambda, axis=1)` con `_calcular_stat` | 12 llamadas a `apply` iteran fila por fila; vectorizado es ~60x más rápido a escala |
+| `stat_role` via `idxmax(axis=1).map(_STAT_ROLE_MAP)` | `apply(_stat_role, axis=1)` | Un solo `idxmax` sobre todo el DataFrame vs una llamada por fila |
+| `pokemon.json` con tipos nativos (int, None) | `pokemon.csv` con `dtype=str` | JSON preserva la estructura original de la API; evita conversión str→int en cada ejecución del pipeline |
+| `_calcular_stat` se mantiene como función pública | Inlining total | Los tests la importan y verifican directamente — sirve como contrato documentado de la fórmula |
+| Rechazados registrados con `motivo_rechazo` en vez de silenciosamente descartados | `dropna()` / `df[mask]` sin trazar | Trazabilidad: el DE puede auditar qué se descartó y por qué |
 
 ---
 
