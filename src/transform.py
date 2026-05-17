@@ -74,17 +74,14 @@ def transform_comparaciones(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.Data
 
 # ─── TRANSFORM: POKEMON ──────────────────────────────────────────────────────
 
-def _stat_role(row: pd.Series) -> str:
-    dominant = row[STAT_COLS].idxmax()
-    roles = {
-        "hp":             "tank",
-        "defense":        "tank",
-        "special_defense":"tank",
-        "attack":         "physical_sweeper",
-        "special_attack": "special_sweeper",
-        "speed":          "speedster",
-    }
-    return roles.get(dominant, "balanced")
+_STAT_ROLE_MAP = {
+    "hp":             "tank",
+    "defense":        "tank",
+    "special_defense":"tank",
+    "attack":         "physical_sweeper",
+    "special_attack": "special_sweeper",
+    "speed":          "speedster",
+}
 
 
 def transform_pokemon(df_raw: pd.DataFrame) -> pd.DataFrame:
@@ -109,7 +106,7 @@ def transform_pokemon(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["weight_kg"]   = df["weight"] / 10
 
     # ── 2. Rol basado en el stat dominante ───────────────────────────────────
-    df["stat_role"] = df[STAT_COLS].apply(_stat_role, axis=1)
+    df["stat_role"] = df[STAT_COLS].idxmax(axis=1).map(_STAT_ROLE_MAP).fillna("balanced")
 
     # ── 3. Tipo secundario: None -> "none" para claridad en queries ──────────
     df["type2"] = df["type2"].fillna("none")
@@ -155,15 +152,17 @@ def enrich_comparaciones(
         how="left"
     )
 
-    # ── Calcular stats reales al nivel dado ───────────────────────────────────
+    # ── Calcular stats reales al nivel dado (vectorizado) ────────────────────
     for stat in STAT_COLS:
         es_hp = stat == "hp"
-        df[f"a_{stat}_lv"] = df.apply(
-            lambda r: _calcular_stat(r[f"a_{stat}"], r["nivel_a"], es_hp), axis=1
-        )
-        df[f"b_{stat}_lv"] = df.apply(
-            lambda r: _calcular_stat(r[f"b_{stat}"], r["nivel_b"], es_hp), axis=1
-        )
+        base_a = (2 * df[f"a_{stat}"] * df["nivel_a"]) // 100
+        base_b = (2 * df[f"b_{stat}"] * df["nivel_b"]) // 100
+        if es_hp:
+            df[f"a_{stat}_lv"] = (base_a + df["nivel_a"] + 10).astype(int)
+            df[f"b_{stat}_lv"] = (base_b + df["nivel_b"] + 10).astype(int)
+        else:
+            df[f"a_{stat}_lv"] = (base_a + 5).astype(int)
+            df[f"b_{stat}_lv"] = (base_b + 5).astype(int)
 
     # ── Total stats al nivel dado ─────────────────────────────────────────────
     lv_cols_a = [f"a_{s}_lv" for s in STAT_COLS]
@@ -195,12 +194,6 @@ def build_tabla_comparacion(df_battles: pd.DataFrame) -> pd.DataFrame:
     Tabla legible con una fila por enfrentamiento:
     pokemon + tipo + stats al nivel vs contrincante + tipo + stats al nivel + resultado.
     """
-    lv_cols_a = [f"a_{s}_lv" for s in STAT_COLS]
-    lv_cols_b = [f"b_{s}_lv" for s in STAT_COLS]
-
-    rename_a = {col: col.replace("a_", "").replace("_lv", "_lv") for col in lv_cols_a}
-    rename_b = {col: col.replace("b_", "").replace("_lv", "_lv") for col in lv_cols_b}
-
     df = pd.DataFrame({
         # ── Pokemon A ────────────────────────────────────────────────────────
         "pokemon_id":          df_battles["pokemon_a"],
