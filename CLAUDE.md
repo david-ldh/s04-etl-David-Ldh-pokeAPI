@@ -36,6 +36,7 @@ pokemon-pipeline/
 ├── pipeline.py               # Orquestador principal E->T->V->L
 ├── generate_data.py          # Descarga PokeAPI + genera comparacion.csv sintético
 ├── requirements.txt
+├── README.md                 # Instrucciones de instalación y uso (para usuarios del repo)
 └── CLAUDE.md                 # Este archivo
 ```
 
