@@ -1,0 +1,9 @@
+requests>=2.32
+pandas>=2.2
+numpy>=2.0
+duckdb>=1.1
+pandera>=0.20
+pytest>=8.3
+tqdm>=4.66
+jupyter>=1.1
+nbconvert>=7.0

@@ -1,0 +1,33 @@
+# Datos generados — se recrean con generate_data.py y pipeline.py
+data/raw/
+data/processed/
+data/rejected/
+
+# Logs
+logs/
+
+# Variables de entorno
+.env
+
+# Entorno virtual
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# pytest
+.pytest_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.code-workspace
